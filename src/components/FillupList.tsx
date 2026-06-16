@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import {
-  deriveRows,
+  deriveRowsByVehicle,
   stationKey,
   stationLabel,
   fmtMpg,
@@ -11,24 +11,41 @@ import {
   fmtMiles,
   fmtMoney,
   type Fillup,
+  type Vehicle,
+  type DerivedRow,
 } from "@/lib/calc";
 import { deleteFillup } from "@/app/(app)/actions";
 import { useDismissedSkips } from "@/lib/useDismissedSkips";
 import { FillupForm } from "@/components/FillupForm";
 import { Readout, Badge, Stat } from "@/components/ui";
 
-export function FillupList({ fillups }: { fillups: Fillup[] }) {
+export function FillupList({ fillups, vehicles }: { fillups: Fillup[]; vehicles: Vehicle[] }) {
   const { dismissed, toggle } = useDismissedSkips();
   const [editing, setEditing] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const rows = useMemo(() => deriveRows(fillups), [fillups]);
-  // Most recent first for reading.
-  const display = useMemo(() => [...rows].reverse(), [rows]);
+  const vehicleById = useMemo(() => {
+    const m = new Map<string, Vehicle>();
+    for (const v of vehicles) m.set(v.id, v);
+    return m;
+  }, [vehicles]);
+
+  const grouped = useMemo(() => deriveRowsByVehicle(fillups), [fillups]);
+
+  // Flatten all vehicle groups then sort newest date first, then highest odometer.
+  const display = useMemo(() => {
+    const all: DerivedRow[] = [];
+    for (const rows of grouped.values()) all.push(...rows);
+    return all.sort((a, b) => {
+      if (b.filled_at !== a.filled_at) return b.filled_at > a.filled_at ? 1 : -1;
+      return b.odometer - a.odometer;
+    });
+  }, [grouped]);
 
   const labelByKey = useMemo(() => {
     const m = new Map<string, string>();
-    for (const f of fillups) m.set(stationKey(f.station_name, f.station_location), stationLabel(f.station_name, f.station_location));
+    for (const f of fillups)
+      m.set(stationKey(f.station_name, f.station_location), stationLabel(f.station_name, f.station_location));
     return m;
   }, [fillups]);
 
@@ -45,7 +62,9 @@ export function FillupList({ fillups }: { fillups: Fillup[] }) {
     return (
       <div className="rounded-xl border border-dashed border-hairline bg-paper/60 px-5 py-10 text-center">
         <p className="font-display text-base font-semibold text-ink">No fill-ups yet</p>
-        <p className="mt-1 text-sm text-ink/55">Log one on the Log tab. After your second fill, MPG starts showing here.</p>
+        <p className="mt-1 text-sm text-ink/55">
+          Log one on the Log tab. After your second fill, MPG starts showing here.
+        </p>
       </div>
     );
   }
@@ -55,6 +74,8 @@ export function FillupList({ fillups }: { fillups: Fillup[] }) {
       {display.map((r) => {
         const creditLabel = r.mpgCreditStationKey ? labelByKey.get(r.mpgCreditStationKey) : null;
         const skipActive = r.suspectedSkip && !dismissed.has(r.id);
+        const vehicle = r.vehicle_id ? vehicleById.get(r.vehicle_id) : null;
+        const vehicleName = vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : null;
 
         if (editing === r.id) {
           return (
@@ -63,6 +84,7 @@ export function FillupList({ fillups }: { fillups: Fillup[] }) {
               <FillupForm
                 mode="edit"
                 fillup={r}
+                vehicles={vehicles}
                 stationNames={stationNames}
                 stationLocations={stationLocations}
                 onDone={() => setEditing(null)}
@@ -78,7 +100,10 @@ export function FillupList({ fillups }: { fillups: Fillup[] }) {
                 <p className="font-display text-base font-semibold leading-tight text-ink">
                   {stationLabel(r.station_name, r.station_location)}
                 </p>
-                <p className="text-xs text-ink/50">{formatDate(r.filled_at)}</p>
+                <p className="text-xs text-ink/50">
+                  {formatDate(r.filled_at)}
+                  {vehicleName && <> · {vehicleName}</>}
+                </p>
               </div>
               <div className="flex shrink-0 gap-1">
                 <button
@@ -109,7 +134,11 @@ export function FillupList({ fillups }: { fillups: Fillup[] }) {
                 sub={creditLabel ? `${creditLabel}'s gas` : r.intervalMpg === null ? "no interval yet" : undefined}
               />
               <Readout label="$/gal" value={fmtPricePerGallon(r.pricePerGallon)} />
-              <Readout label="$/mile" value={fmtCostPerMile(r.costPerMile)} tone={r.costPerMile === null ? "muted" : "default"} />
+              <Readout
+                label="$/mile"
+                value={fmtCostPerMile(r.costPerMile)}
+                tone={r.costPerMile === null ? "muted" : "default"}
+              />
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">

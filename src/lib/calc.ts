@@ -17,8 +17,19 @@
 // how far that station's gas took you.
 // ---------------------------------------------------------------------------
 
+export type Vehicle = {
+  id: string;
+  make: string;
+  model: string;
+  year: number;
+  odometer: number;
+  vin: string | null;
+  created_at?: string | null;
+};
+
 export type Fillup = {
   id: string;
+  vehicle_id: string | null;
   filled_at: string; // 'YYYY-MM-DD'
   station_name: string;
   station_location: string | null;
@@ -172,6 +183,24 @@ export function deriveRows(fillups: Fillup[]): DerivedRow[] {
   return rows;
 }
 
+/**
+ * Group fill-ups by vehicle_id (null is its own group), then run deriveRows on
+ * each group independently. No interval ever spans two different vehicle_id values.
+ */
+export function deriveRowsByVehicle(fillups: Fillup[]): Map<string | null, DerivedRow[]> {
+  const groups = new Map<string | null, Fillup[]>();
+  for (const f of fillups) {
+    const key = f.vehicle_id ?? null;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(f);
+  }
+  const result = new Map<string | null, DerivedRow[]>();
+  for (const [key, group] of groups) {
+    result.set(key, deriveRows(group));
+  }
+  return result;
+}
+
 // Per-station oldest entry + display label, from raw fills (all of them).
 function stationMeta(fillups: Fillup[]): Map<string, { label: string; earliest: string }> {
   const m = new Map<string, { label: string; earliest: string }>();
@@ -202,18 +231,20 @@ function includeForLeaderboard(r: DerivedRow, opts: LeaderboardOptions): boolean
  * station entry -> name.
  */
 export function leaderboardByMpg(fillups: Fillup[], opts: LeaderboardOptions = {}): LeaderboardEntry[] {
-  const rows = deriveRows(fillups);
+  const grouped = deriveRowsByVehicle(fillups);
   const meta = stationMeta(fillups);
   const groups = new Map<string, { mpgs: number[]; cpms: number[] }>();
 
-  for (const r of rows) {
-    if (r.intervalMpg === null || r.mpgCreditStationKey === null) continue;
-    if (!includeForLeaderboard(r, opts)) continue;
-    const key = r.mpgCreditStationKey;
-    const g = groups.get(key) || { mpgs: [], cpms: [] };
-    g.mpgs.push(r.intervalMpg);
-    if (r.costPerMile !== null) g.cpms.push(r.costPerMile);
-    groups.set(key, g);
+  for (const rows of grouped.values()) {
+    for (const r of rows) {
+      if (r.intervalMpg === null || r.mpgCreditStationKey === null) continue;
+      if (!includeForLeaderboard(r, opts)) continue;
+      const key = r.mpgCreditStationKey;
+      const g = groups.get(key) || { mpgs: [], cpms: [] };
+      g.mpgs.push(r.intervalMpg);
+      if (r.costPerMile !== null) g.cpms.push(r.costPerMile);
+      groups.set(key, g);
+    }
   }
 
   const entries: LeaderboardEntry[] = [];
@@ -241,16 +272,18 @@ export function leaderboardByMpg(fillups: Fillup[], opts: LeaderboardOptions = {
  * -> oldest station entry -> name.
  */
 export function leaderboardByPrice(fillups: Fillup[], opts: LeaderboardOptions = {}): LeaderboardEntry[] {
-  const rows = deriveRows(fillups);
+  const grouped = deriveRowsByVehicle(fillups);
   const meta = stationMeta(fillups);
   const groups = new Map<string, { prices: number[]; cpms: number[] }>();
 
-  for (const r of rows) {
-    const key = stationKey(r.station_name, r.station_location);
-    const g = groups.get(key) || { prices: [], cpms: [] };
-    g.prices.push(r.pricePerGallon); // price is always defined for every fill
-    if (r.costPerMile !== null && includeForLeaderboard(r, opts)) g.cpms.push(r.costPerMile);
-    groups.set(key, g);
+  for (const rows of grouped.values()) {
+    for (const r of rows) {
+      const key = stationKey(r.station_name, r.station_location);
+      const g = groups.get(key) || { prices: [], cpms: [] };
+      g.prices.push(r.pricePerGallon);
+      if (r.costPerMile !== null && includeForLeaderboard(r, opts)) g.cpms.push(r.costPerMile);
+      groups.set(key, g);
+    }
   }
 
   const entries: LeaderboardEntry[] = [];

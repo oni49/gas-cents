@@ -1,8 +1,8 @@
-import { getFillups } from "@/lib/data";
+import { getFillups, getVehicles } from "@/lib/data";
 import { FillupList } from "@/components/FillupList";
 
 export default async function HistoryPage() {
-  const fillups = await getFillups();
+  const [fillups, vehicles] = await Promise.all([getFillups(), getVehicles()]);
   return (
     <div className="space-y-4">
       <div>
@@ -11,7 +11,7 @@ export default async function HistoryPage() {
           Every fill-up, newest first. MPG is credited to the station whose gas powered that stretch.
         </p>
       </div>
-      <FillupList fillups={fillups} />
+      <FillupList fillups={fillups} vehicles={vehicles} />
     </div>
   );
 }

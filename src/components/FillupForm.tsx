@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
 import { addFillup, updateFillup, type ActionState } from "@/app/(app)/actions";
-import type { Fillup } from "@/lib/calc";
+import type { Fillup, Vehicle } from "@/lib/calc";
 
 const initial: ActionState = { ok: false };
 
@@ -16,34 +17,84 @@ function todayISO() {
 export function FillupForm({
   mode = "add",
   fillup,
+  vehicles,
+  selectedVehicleId,
+  onVehicleChange,
   stationNames,
   stationLocations,
   onDone,
 }: {
   mode?: "add" | "edit";
   fillup?: Fillup;
+  vehicles: Vehicle[];
+  selectedVehicleId?: string | null;
+  onVehicleChange?: (id: string) => void;
   stationNames: string[];
   stationLocations: string[];
   onDone?: () => void;
 }) {
+  const router = useRouter();
   const action = mode === "edit" ? updateFillup : addFillup;
   const [state, formAction] = useFormState(action, initial);
   const formRef = useRef<HTMLFormElement>(null);
   const lastReset = useRef<number | undefined>(undefined);
 
+  // In add mode the parent controls selectedVehicleId; in edit mode we own it locally.
+  const initialVehicleId =
+    selectedVehicleId !== undefined
+      ? (selectedVehicleId ?? "")
+      : (fillup?.vehicle_id ?? (vehicles[0]?.id ?? ""));
+  const [vehicleId, setVehicleId] = useState(initialVehicleId);
+
+  // Stay in sync with parent-controlled selectedVehicleId (add mode only).
+  useEffect(() => {
+    if (selectedVehicleId !== undefined) setVehicleId(selectedVehicleId ?? "");
+  }, [selectedVehicleId]);
+
   useEffect(() => {
     if (state.ok && state.resetKey && state.resetKey !== lastReset.current) {
       lastReset.current = state.resetKey;
-      if (mode === "add") formRef.current?.reset();
+      if (mode === "add") {
+        formRef.current?.reset();
+        // Preserve the selected vehicle after reset.
+        setVehicleId(selectedVehicleId ?? vehicles[0]?.id ?? "");
+      }
       onDone?.();
     }
-  }, [state, mode, onDone]);
+  }, [state, mode, onDone, selectedVehicleId, vehicles]);
+
+  const handleVehicleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    if (val === "__new__") {
+      router.push("/settings");
+      return;
+    }
+    setVehicleId(val);
+    onVehicleChange?.(val);
+  };
 
   return (
     <form ref={formRef} action={formAction} className="space-y-3">
       {mode === "edit" && <input type="hidden" name="id" value={fillup?.id} />}
 
       <div className="grid grid-cols-2 gap-3">
+        <Field label="Vehicle" className="col-span-2">
+          <select
+            name="vehicle_id"
+            value={vehicleId}
+            onChange={handleVehicleChange}
+            className={`${inputCls} cursor-pointer`}
+          >
+            {vehicles.length === 0 && <option value="">No vehicles — add one in Settings</option>}
+            {vehicles.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.year} {v.make} {v.model}
+              </option>
+            ))}
+            <option value="__new__">Add new vehicle →</option>
+          </select>
+        </Field>
+
         <Field label="Date" className="col-span-2">
           <input
             type="date"

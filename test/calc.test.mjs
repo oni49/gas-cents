@@ -4,6 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   deriveRows,
+  deriveRowsByVehicle,
   leaderboardByMpg,
   leaderboardByPrice,
   stationKey,
@@ -11,6 +12,7 @@ import {
 
 const f = (over) => ({
   id: Math.random().toString(36).slice(2),
+  vehicle_id: null,
   filled_at: "2026-01-01",
   station_name: "Shell",
   station_location: null,
@@ -129,6 +131,74 @@ test("price board counts every fill; MPG board count can be one fewer", () => {
   assert.equal(price[0].count, 2);
   const mpg = leaderboardByMpg(data);
   assert.equal(mpg[0].count, 1); // only the first Solo fill's gas has been "closed"
+});
+
+// --- per-vehicle grouping ---
+
+test("deriveRowsByVehicle groups fills by vehicle_id with no cross-vehicle intervals", () => {
+  const fills = [
+    f({ id: "a1", vehicle_id: "v1", odometer: 1000 }),
+    f({ id: "a2", vehicle_id: "v1", odometer: 1300 }),
+    f({ id: "b1", vehicle_id: "v2", odometer: 500 }),
+    f({ id: "b2", vehicle_id: "v2", odometer: 800 }),
+  ];
+  const grouped = deriveRowsByVehicle(fills);
+
+  assert.equal(grouped.size, 2);
+  const v1 = grouped.get("v1");
+  const v2 = grouped.get("v2");
+
+  const a2 = v1.find((r) => r.id === "a2");
+  assert.equal(a2.intervalMiles, 300); // 1300 - 1000, not cross-vehicle
+
+  const b2 = v2.find((r) => r.id === "b2");
+  assert.equal(b2.intervalMiles, 300); // 800 - 500, not cross-vehicle
+});
+
+test("null-vehicle fills form their own isolated group", () => {
+  const fills = [
+    f({ id: "n1", vehicle_id: null, odometer: 100 }),
+    f({ id: "n2", vehicle_id: null, odometer: 200 }),
+    f({ id: "v1", vehicle_id: "car-1", odometer: 150 }),
+  ];
+  const grouped = deriveRowsByVehicle(fills);
+
+  assert.equal(grouped.size, 2);
+  const nullGroup = grouped.get(null);
+  assert.equal(nullGroup.length, 2);
+  // n2's interval should only see n1 as predecessor, not car-1 at odo 150
+  const n2 = nullGroup.find((r) => r.id === "n2");
+  assert.equal(n2.intervalMiles, 100); // 200 - 100
+});
+
+test("leaderboard MPG intervals never cross vehicle boundaries", () => {
+  const fills = [
+    f({ id: "v1a", vehicle_id: "v1", station_name: "Costco", odometer: 1000, gallons: 10 }),
+    f({ id: "v1b", vehicle_id: "v1", station_name: "Shell", odometer: 1300, gallons: 10 }),
+    f({ id: "v2a", vehicle_id: "v2", station_name: "BP", odometer: 500, gallons: 10 }),
+    f({ id: "v2b", vehicle_id: "v2", station_name: "Mobil", odometer: 800, gallons: 10 }),
+  ];
+  const board = leaderboardByMpg(fills);
+
+  const costco = board.find((e) => e.stationLabel === "Costco");
+  assert.equal(costco.value, 30); // 300/10 from v1
+  assert.equal(costco.count, 1);
+
+  const bp = board.find((e) => e.stationLabel === "BP");
+  assert.equal(bp.value, 30); // 300/10 from v2
+  assert.equal(bp.count, 1);
+});
+
+test("price leaderboard aggregates across vehicles without cross-vehicle cost/mile", () => {
+  const fills = [
+    f({ id: "1", vehicle_id: "v1", station_name: "Cheap", odometer: 1000, gallons: 10, total_cost: 30 }),
+    f({ id: "2", vehicle_id: "v1", station_name: "Cheap", odometer: 1300, gallons: 10, total_cost: 30 }),
+    f({ id: "3", vehicle_id: "v2", station_name: "Cheap", odometer: 500, gallons: 10, total_cost: 30 }),
+  ];
+  const board = leaderboardByPrice(fills);
+  assert.equal(board.length, 1);
+  assert.equal(board[0].count, 3); // all 3 fills at same station, across vehicles
+  assert.equal(board[0].value, 3); // $30 / 10 gal
 });
 
 test("skipped-log heuristic flags an inflated-MPG outlier", () => {

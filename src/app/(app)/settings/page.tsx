@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getVehicles } from "@/lib/data";
+import { VehicleManager } from "@/components/VehicleManager";
 
 export const metadata: Metadata = {
   title: "Settings — GasCents",
@@ -19,10 +21,17 @@ const items = [
   },
 ];
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const vehicles = await getVehicles();
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <h1 className="font-display text-2xl font-bold tracking-tight text-ink">Settings</h1>
+
+      <section className="space-y-3">
+        <h2 className="font-display text-base font-semibold text-ink">Vehicles</h2>
+        <VehicleManager vehicles={vehicles} />
+      </section>
 
       <ul className="rounded-2xl border border-hairline bg-paper shadow-card divide-y divide-hairline overflow-hidden">
         {items.map(({ href, label, description, icon }) => (
@@ -44,6 +53,7 @@ export default function SettingsPage() {
     </div>
   );
 }
+
 
 function ChevronRight() {
   return (
