@@ -39,10 +39,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
-      <head>
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-      </head>
-      <body className="min-h-dvh">
+<body className="min-h-dvh">
         <ServiceWorkerRegistrar />
         {children}
       </body>
