@@ -57,9 +57,11 @@ export function LogPageClient({
 
       <div className="rounded-2xl border border-hairline bg-paper p-4 shadow-card">
         <FillupForm
+          key={selectedVehicleId ?? "none"}
           vehicles={vehicles}
           selectedVehicleId={selectedVehicleId}
           onVehicleChange={setSelectedVehicleId}
+          defaultOdometer={stats?.lastOdometer ?? null}
           stationNames={stationNames}
           stationLocations={stationLocations}
         />

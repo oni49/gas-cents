@@ -20,6 +20,7 @@ export function FillupForm({
   vehicles,
   selectedVehicleId,
   onVehicleChange,
+  defaultOdometer,
   stationNames,
   stationLocations,
   onDone,
@@ -29,6 +30,7 @@ export function FillupForm({
   vehicles: Vehicle[];
   selectedVehicleId?: string | null;
   onVehicleChange?: (id: string) => void;
+  defaultOdometer?: number | null;
   stationNames: string[];
   stationLocations: string[];
   onDone?: () => void;
@@ -45,11 +47,6 @@ export function FillupForm({
       ? (selectedVehicleId ?? "")
       : (fillup?.vehicle_id ?? (vehicles[0]?.id ?? ""));
   const [vehicleId, setVehicleId] = useState(initialVehicleId);
-
-  // Stay in sync with parent-controlled selectedVehicleId (add mode only).
-  useEffect(() => {
-    if (selectedVehicleId !== undefined) setVehicleId(selectedVehicleId ?? "");
-  }, [selectedVehicleId]);
 
   useEffect(() => {
     if (state.ok && state.resetKey && state.resetKey !== lastReset.current) {
@@ -149,7 +146,7 @@ export function FillupForm({
             step="0.1"
             min="0"
             placeholder="miles"
-            defaultValue={fillup?.odometer ?? ""}
+            defaultValue={fillup?.odometer ?? defaultOdometer ?? ""}
             className={`${inputCls} readout-tile`}
           />
         </Field>
