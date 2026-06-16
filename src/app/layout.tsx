@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Space_Grotesk, Inter, Space_Mono } from "next/font/google";
+import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import "./globals.css";
 
 const display = Space_Grotesk({
@@ -18,6 +19,14 @@ const mono = Space_Mono({
 export const metadata: Metadata = {
   title: "GasCents — fuel efficiency by station",
   description: "Log fill-ups, see real MPG per station, and find the cheapest gas.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "GasCents",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 export const viewport: Viewport = {
@@ -30,7 +39,13 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
-      <body className="min-h-dvh">{children}</body>
+      <head>
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+      </head>
+      <body className="min-h-dvh">
+        <ServiceWorkerRegistrar />
+        {children}
+      </body>
     </html>
   );
 }
