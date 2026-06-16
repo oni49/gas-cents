@@ -43,9 +43,9 @@ export default function InstallPage() {
           <PhoneIcon />
           Android
         </h2>
-        <p className="text-xs text-ink/45">Works best in Chrome. The prompt may appear automatically after a few visits.</p>
+        <p className="text-xs text-ink/45">Works in Chrome and Firefox. Chrome may show an install prompt automatically after a few visits.</p>
         <ol className="space-y-3">
-          <Step n={1}>Open this page in <strong className="text-ink">Chrome</strong>.</Step>
+          <Step n={1}>Open this page in <strong className="text-ink">Chrome</strong> or <strong className="text-ink">Firefox</strong>.</Step>
           <Step n={2}>
             Tap the <strong className="text-ink">⋮</strong> menu in the top-right corner.
           </Step>
