@@ -5,11 +5,23 @@ import { createClient } from "@/lib/supabase/server";
 
 export type ActionState = { ok: boolean; error?: string; resetKey?: number };
 
+type FillupInput = {
+  filled_at: string;
+  station_name: string;
+  station_location: string | null;
+  odometer: number;
+  gallons: number;
+  total_cost: number;
+  filled_to_full: boolean;
+};
+
+type ValidationResult = { values: FillupInput } | { error: string };
+
 function num(v: FormDataEntryValue | null): number {
   return typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
 }
 
-function validate(formData: FormData): { values?: Record<string, unknown>; error?: string } {
+function validate(formData: FormData): ValidationResult {
   const filled_at = String(formData.get("filled_at") || "").trim();
   const station_name = String(formData.get("station_name") || "").trim();
   const station_location = String(formData.get("station_location") || "").trim();
@@ -38,8 +50,8 @@ function validate(formData: FormData): { values?: Record<string, unknown>; error
 }
 
 export async function addFillup(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { values, error } = validate(formData);
-  if (error) return { ok: false, error };
+  const result = validate(formData);
+  if ("error" in result) return { ok: false, error: result.error };
 
   const supabase = createClient();
   const {
@@ -47,7 +59,9 @@ export async function addFillup(_prev: ActionState, formData: FormData): Promise
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "You're signed out. Log in again." };
 
-  const { error: dbError } = await supabase.from("fillups").insert({ ...values, user_id: user.id });
+  const { error: dbError } = await supabase
+    .from("fillups")
+    .insert({ ...result.values, user_id: user.id });
   if (dbError) return { ok: false, error: dbError.message };
 
   revalidatePath("/", "layout");
@@ -58,8 +72,8 @@ export async function updateFillup(_prev: ActionState, formData: FormData): Prom
   const id = String(formData.get("id") || "");
   if (!id) return { ok: false, error: "Missing record id." };
 
-  const { values, error } = validate(formData);
-  if (error) return { ok: false, error };
+  const result = validate(formData);
+  if ("error" in result) return { ok: false, error: result.error };
 
   const supabase = createClient();
   const {
@@ -68,7 +82,7 @@ export async function updateFillup(_prev: ActionState, formData: FormData): Prom
   if (!user) return { ok: false, error: "You're signed out. Log in again." };
 
   // RLS also enforces ownership; the eq() keeps the statement scoped.
-  const { error: dbError } = await supabase.from("fillups").update(values).eq("id", id);
+  const { error: dbError } = await supabase.from("fillups").update(result.values).eq("id", id);
   if (dbError) return { ok: false, error: dbError.message };
 
   revalidatePath("/", "layout");
