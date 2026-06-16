@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type SetAllCookies } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 export function createClient() {
@@ -11,7 +11,7 @@ export function createClient() {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: Parameters<SetAllCookies>[0]) {
           // In Server Components, set() can throw — safe to ignore because
           // session refresh is handled by middleware (see lib/supabase/middleware.ts).
           try {
