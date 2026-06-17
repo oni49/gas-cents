@@ -4,7 +4,7 @@ import { TabNav } from "@/components/TabNav";
 import { SignOutButton } from "@/components/SignOutButton";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
