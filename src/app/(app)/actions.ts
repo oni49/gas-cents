@@ -63,7 +63,7 @@ function validateFillup(formData: FormData, requireVehicle: boolean): Validation
   };
 }
 
-type SupaClient = ReturnType<typeof createClient>;
+type SupaClient = Awaited<ReturnType<typeof createClient>>;
 
 // Recomputes a vehicle's stored odometer as MAX(odometer) across its fill-ups.
 async function syncVehicleOdometer(supabase: SupaClient, vehicleId: string): Promise<void> {
@@ -81,7 +81,7 @@ export async function addFillup(_prev: ActionState, formData: FormData): Promise
   const result = validateFillup(formData, true);
   if ("error" in result) return { ok: false, error: result.error };
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -107,7 +107,7 @@ export async function updateFillup(_prev: ActionState, formData: FormData): Prom
   const result = validateFillup(formData, false);
   if ("error" in result) return { ok: false, error: result.error };
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -134,7 +134,7 @@ export async function updateFillup(_prev: ActionState, formData: FormData): Prom
 }
 
 export async function deleteFillup(id: string): Promise<void> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data } = await supabase.from("fillups").select("vehicle_id").eq("id", id).single();
   const vehicleId = (data?.vehicle_id as string | null) ?? null;
@@ -172,7 +172,7 @@ export async function addVehicle(_prev: ActionState, formData: FormData): Promis
   const result = validateVehicle(formData);
   if ("error" in result) return { ok: false, error: result.error };
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -194,7 +194,7 @@ export async function updateVehicle(_prev: ActionState, formData: FormData): Pro
   const result = validateVehicle(formData);
   if ("error" in result) return { ok: false, error: result.error };
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -208,7 +208,7 @@ export async function updateVehicle(_prev: ActionState, formData: FormData): Pro
 }
 
 export async function deleteVehicle(id: string): Promise<{ ok: boolean; error?: string }> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { count } = await supabase
     .from("fillups")

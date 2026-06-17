@@ -7,7 +7,7 @@ const FILLUP_COLUMNS =
 // Fetch the signed-in user's fill-ups. RLS guarantees only their own rows.
 // Postgres `numeric` comes back as strings (to preserve precision) — coerce here.
 export async function getFillups(): Promise<Fillup[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("fillups")
     .select(FILLUP_COLUMNS)
@@ -32,7 +32,7 @@ export async function getFillups(): Promise<Fillup[]> {
 const VEHICLE_COLUMNS = "id, make, model, year, odometer, vin, created_at";
 
 export async function getVehicles(): Promise<Vehicle[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("vehicles")
     .select(VEHICLE_COLUMNS)
